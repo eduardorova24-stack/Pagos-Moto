@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Pagos – Ciclone XRF 250</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0e; --surface: #1a1a1a; --surface2: #242424;
+    --accent: #f97316; --accent2: #fbbf24; --text: #f5f5f0;
+    --muted: #888; --success: #4ade80; --border: #2e2e2e;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; padding:24px 16px 48px; }
+  header { margin-bottom:32px; }
+  .moto-label {
+    font-family:'Bebas Neue',sans-serif; font-size:clamp(32px,8vw,64px);
+    line-height:1; letter-spacing:2px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  }
+  .subtitle { color:var(--muted); font-size:13px; margin-top:4px; letter-spacing:1px; text-transform:uppercase; display:flex; align-items:center; gap:6px; }
+  .sync-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--muted); flex-shrink:0; transition:background 0.3s; }
+  .sync-dot.ok { background:var(--success); }
+  .sync-dot.loading { background:var(--accent2); animation:pulse 1s infinite; }
+  .sync-dot.error { background:#ef4444; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .progress-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:24px; }
+  .amounts { display:flex; justify-content:space-between; margin-bottom:16px; gap:12px; flex-wrap:wrap; }
+  .amount-item { flex:1; min-width:90px; }
+  .amount-label { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:4px; }
+  .amount-value { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:1px; }
+  .amount-value.paid { color:var(--success); }
+  .amount-value.pending { color:var(--accent); }
+  .progress-bar-wrap { background:var(--surface2); border-radius:99px; height:10px; overflow:hidden; margin-bottom:8px; }
+  .progress-bar-fill { height:100%; border-radius:99px; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width 0.6s; }
+  .progress-pct { font-size:12px; color:var(--muted); text-align:right; }
+
+  .add-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px; margin-bottom:24px; }
+  .card-title { font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:1px; color:var(--accent); margin-bottom:14px; }
+  .form-row { display:flex; gap:10px; flex-wrap:wrap; }
+  .input-group { flex:1; min-width:120px; }
+  .input-group label { display:block; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:6px; }
+  input[type="date"], input[type="number"], input[type="text"] {
+    width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+    color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; padding:10px 12px; outline:none; transition:border-color 0.2s;
+  }
+  input:focus { border-color:var(--accent); }
+  .btn-add {
+    background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#000; border:none;
+    border-radius:10px; font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:1px;
+    padding:11px 24px; cursor:pointer; align-self:flex-end; transition:opacity 0.2s; white-space:nowrap;
+  }
+  .btn-add:disabled { opacity:0.5; cursor:not-allowed; }
+
+  .table-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+  .table-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+  table { width:100%; border-collapse:collapse; }
+  thead th { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); padding:10px 16px; text-align:left; background:var(--surface2); }
+  tbody tr { border-top:1px solid var(--border); }
+  tbody td { padding:12px 16px; font-size:14px; }
+  .monto-td { font-family:'Bebas Neue',sans-serif; font-size:16px; color:var(--success); }
+  .num-td { color:var(--muted); font-size:12px; }
+  .btn-del { background:none; border:1px solid #3a3a3a; border-radius:6px; color:var(--muted); cursor:pointer; font-size:13px; padding:4px 8px; }
+  .btn-del:hover { border-color:#ef4444; color:#ef4444; }
+  .empty-row td { text-align:center; color:var(--muted); font-size:13px; padding:32px; font-style:italic; }
+  .paid-badge { background:rgba(74,222,128,0.15); color:var(--success); font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; border-radius:99px; padding:3px 10px; }
+  @media(max-width:480px){ .form-row{flex-direction:column;} .btn-add{width:100%;} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="moto-label">CICLONE XRF 250</div>
+  <div class="subtitle">
+    <span class="sync-dot loading" id="sync-dot"></span>
+    <span id="sync-label">Conectando...</span>
+  </div>
+</header>
+
+<div class="progress-card">
+  <div class="amounts">
+    <div class="amount-item">
+      <div class="amount-label">Total</div>
+      <div class="amount-value">₡800,000</div>
+    </div>
+    <div class="amount-item">
+      <div class="amount-label">Pagado</div>
+      <div class="amount-value paid" id="paid-display">₡0</div>
+    </div>
+    <div class="amount-item">
+      <div class="amount-label">Pendiente</div>
+      <div class="amount-value pending" id="pending-display">₡800,000</div>
+    </div>
+  </div>
+  <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+  <div class="progress-pct" id="progress-pct">0% completado</div>
+</div>
+
+<div class="add-card">
+  <div class="card-title">Agregar Pago</div>
+  <div class="form-row">
+    <div class="input-group">
+      <label>Fecha</label>
+      <input type="date" id="inp-date">
+    </div>
+    <div class="input-group">
+      <label>Monto (₡)</label>
+      <input type="number" id="inp-amount" placeholder="100000" min="1">
+    </div>
+    <div class="input-group">
+      <label>Nota (opcional)</label>
+      <input type="text" id="inp-note" placeholder="Ej: mes de mayo">
+    </div>
+    <button class="btn-add" id="btn-add" onclick="addPayment()">+ Agregar</button>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-header">
+    <span class="card-title" style="margin:0">Historial</span>
+    <span id="paid-badge"></span>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>Fecha</th><th>Monto</th><th>Nota</th><th></th></tr></thead>
+    <tbody id="payment-body">
+      <tr class="empty-row"><td colspan="5">Cargando...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  var DB = 'https://pagos-moto-default-rtdb.firebaseio.com';
+  var TOTAL = 800000;
+  var pollInterval = null;
+
+  function fmt(n) { return '₡' + Number(n).toLocaleString('es-CR'); }
+  function fmtDate(d) {
+    if (!d) return '—';
+    var p = d.split('-');
+    return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : d;
+  }
+
+  function render(payments) {
+    var paid = payments.reduce(function(s,p){ return s+p.amount; }, 0);
+    var pending = Math.max(0, TOTAL - paid);
+    var pct = Math.min(100, Math.round(paid/TOTAL*100));
+    document.getElementById('paid-display').textContent = fmt(paid);
+    document.getElementById('pending-display').textContent = fmt(pending);
+    document.getElementById('progress-fill').style.width = pct+'%';
+    document.getElementById('progress-pct').textContent = pct+'% completado';
+    document.getElementById('paid-badge').innerHTML = paid >= TOTAL ? '<span class="paid-badge">✓ Saldado</span>' : '';
+
+    var tbody = document.getElementById('payment-body');
+    if (!payments.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Aún no hay pagos registrados.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = payments.map(function(p,i){
+      return '<tr>'+
+        '<td class="num-td">'+(i+1)+'</td>'+
+        '<td>'+fmtDate(p.date)+'</td>'+
+        '<td class="monto-td">'+fmt(p.amount)+'</td>'+
+        '<td style="color:var(--muted);font-size:13px">'+(p.note||'—')+'</td>'+
+        '<td><button class="btn-del" onclick="deletePayment(\''+p.key+'\')">✕</button></td>'+
+        '</tr>';
+    }).join('');
+  }
+
+  function loadData() {
+    fetch(DB+'/pagos.json')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        document.getElementById('sync-dot').className = 'sync-dot ok';
+        document.getElementById('sync-label').textContent = 'Sincronizado';
+        var payments = [];
+        if (data) {
+          Object.keys(data).forEach(function(key){
+            payments.push(Object.assign({key:key}, data[key]));
+          });
+        }
+        payments.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+        render(payments);
+      })
+      .catch(function(){
+        document.getElementById('sync-dot').className = 'sync-dot error';
+        document.getElementById('sync-label').textContent = 'Error de conexión';
+      });
+  }
+
+  function addPayment() {
+    var date = document.getElementById('inp-date').value;
+    var amount = parseInt(document.getElementById('inp-amount').value);
+    var note = document.getElementById('inp-note').value.trim();
+    if (!amount || amount <= 0) { alert('Ingresá un monto válido.'); return; }
+
+    var btn = document.getElementById('btn-add');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    fetch(DB+'/pagos.json', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({date:date, amount:amount, note:note})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(){
+      document.getElementById('inp-amount').value = '';
+      document.getElementById('inp-note').value = '';
+      loadData();
+    })
+    .catch(function(){ alert('Error al guardar. Revisá tu conexión.'); })
+    .finally(function(){
+      btn.disabled = false;
+      btn.textContent = '+ Agregar';
+    });
+  }
+
+  function deletePayment(key) {
+    if (!confirm('¿Eliminar este pago?')) return;
+    fetch(DB+'/pagos/'+key+'.json', {method:'DELETE'})
+      .then(function(){ loadData(); })
+      .catch(function(){ alert('Error al eliminar.'); });
+  }
+
+  // Set today
+  var t = new Date();
+  document.getElementById('inp-date').value =
+    t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+
+  // Load & auto-refresh every 10s
+  loadData();
+  pollInterval = setInterval(loadData, 10000);
+</script>
+</body>
+</html>
